@@ -1,0 +1,69 @@
+{
+  "variables": {
+    "ecr_url": "",
+    "al_image_repo": "amazonlinux_ansible",
+    "application_repo": "",
+    "tag": ""
+  },
+
+  "builders": [
+    {
+      "type": "docker",
+      "ecr_login": true,
+      "login_server": "https://{{ user `ecr_url`}}/",
+      "image": "{{ user `ecr_url` }}/{{ user `al_image_repo`}}",
+      "commit": true,
+      "changes": [
+        "CMD snort -A console -q -u snort -g snort -c /etc/snort/snort.conf -i eth0"
+      ],
+      "run_command": [
+        "-d", "-i", "-t", "{{.Image}}", "/bin/bash"
+      ]
+    }],
+
+      "provisioners": [
+        {
+          "type": "file",
+          "source": "files/configuration/snort.j2",
+          "destination": "/tmp/snort.j2"
+        },
+        {
+          "type": "file",
+          "source": "files/configuration/pulledpork.conf",
+          "destination": "/tmp/pulledpork.conf"
+        },
+        {
+          "type": "ansible-local",
+          "playbook_file": "files/playbooks/snort_container.yml"
+        }
+      ],
+
+      "post-processors": [
+        [
+          {
+            "type": "docker-tag",
+            "tag": "{{user `tag`}}",
+            "repository": "{{ user `ecr_url`}}/{{ user `application_repo`}}",
+            "force": true
+          },
+          {
+            "type": "docker-push",
+            "ecr_login": true,
+            "login_server": "https://{{ user `ecr_url`}}/"
+          }
+        ],
+        [
+          {
+            "type": "docker-tag",
+            "repository": "{{ user `ecr_url`}}/{{ user `application_repo`}}",
+            "tag": "latest",
+            "force": true
+          },
+          {
+            "type": "docker-push",
+            "ecr_login": true,
+            "login_server": "https://{{ user `ecr_url`}}/"
+          }
+        ]
+      ]
+}

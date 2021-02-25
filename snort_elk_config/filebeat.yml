@@ -1,0 +1,24 @@
+###################### Filebeat Configuration Example #########################
+
+# ============================== Filebeat inputs ===============================
+
+filebeat.inputs:
+
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/alert
+    tags: ["snort"]
+
+# ------------------------------ Logstash Output -------------------------------
+output.logstash:
+  # The Logstash hosts
+  hosts: ["localhost:5044"]
+
+# ================================= Processors =================================
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~

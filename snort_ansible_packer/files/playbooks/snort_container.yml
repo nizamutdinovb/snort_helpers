@@ -1,0 +1,152 @@
+---
+- name: Install Snort prerequisites and Snort
+  hosts: localhost
+  gather_facts: false
+  vars:
+    snort_version: 2.9.16
+    snort_url: https://www.snort.org/downloads/snort/snort-{{ snort_version }}-1.centos7.x86_64.rpm
+  tasks:
+    - name: Install GCC
+      yum:
+        name: gcc
+        state: latest
+    - name: Install flex
+      yum:
+        name: flex
+        state: latest
+    - name: Install bison
+      yum:
+        name: bison
+        state: latest
+    - name: Install zlib
+      yum:
+        name: zlib
+        state: latest
+    - name: Install libpcap
+      yum:
+        name: libpcap
+        state: latest
+    - name: Install pcre
+      yum:
+        name: pcre
+        state: latest
+    - name: Install libdnet
+      yum:
+        name: libdnet
+        state: latest
+    - name: Install tcpdump
+      yum:
+        name: tcpdump
+        state: latest
+    - name: Install rpm from a remote repo
+      yum:
+        name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+        state: latest
+    - name: Install libnghttp2
+      yum:
+        name: libnghttp2
+        state: latest
+    - name: Install ifconfig
+      yum:
+        name: net-tools
+        state: latest
+    - name: Install tar
+      yum:
+        name: tar
+        state: latest
+    - name: Install unzip
+      yum:
+        name: unzip
+        state: latest
+    - name: Download Snort
+      get_url:
+        url: "{{ snort_url }}"
+        dest: /tmp/snort-{{ snort_version }}-1.centos7.x86_64.rpm
+        mode: 0666
+        timeout: 20
+      retries: 5
+    - name: Install perl-libwww-perl
+      yum:
+        name: perl-libwww-perl
+        state: latest
+    - name: Install perl-Crypt-SSLeay
+      yum:
+        name: perl-Crypt-SSLeay
+        state: latest
+    - name: Install perl-Archive-Tar
+      yum:
+        name: perl-Archive-Tar
+        state: latest
+    - name: Install perl-Sys-Syslog
+      yum:
+        name: perl-Sys-Syslog
+        state: latest
+    - name: Install perl-LWP-Protocol-https
+      yum:
+        name: perl-LWP-Protocol-https
+        state: latest
+    - name: Install Snort
+      yum:
+        name: /tmp/snort-{{ snort_version }}-1.centos7.x86_64.rpm
+        state: present
+    - name: Create Snort log directory
+      file:
+        path: /log
+        owner: snort
+        group: snort
+        state: directory
+        recurse: yes
+    - name: Create a symbolic link
+      file:
+        src: /usr/lib64/libdnet.so.1
+        dest: /usr/lib64/libdnet.1
+        owner: snort
+        group: snort
+        state: link
+#    - name: Download Snort rules
+#      get_url:
+#        url: https://www.snort.org/downloads/community/community-rules.tar.gz
+#        dest: /tmp/community-rules.tar.gz
+#    - name: Unarchive PulledPork rules
+#      unarchive:
+#        src: /tmp/community-rules.tar.gz
+#        dest: /tmp
+#    - name: Copy Community rules
+#      copy:
+#        src: "{{ item }}"
+#        dest: /etc/snort/rules/
+#      with_fileglob:
+#        - /tmp/community-rules/*
+    - name: Download PulledPork
+      get_url:
+        url: https://github.com/shirkdog/pulledpork/archive/master.zip
+        dest: /tmp/master.zip
+    - name: Unarchive PulledPork
+      unarchive:
+        src: /tmp/master.zip
+        dest: /tmp
+    - name: Copy Pulledpork etc files to Snort config
+      copy:
+        src: "{{ item }}"
+        dest: /etc/snort/
+      with_fileglob:
+        - /tmp/pulledpork-master/etc/*
+    - name: Copy Pulledpork binary
+      copy:
+        src: /tmp/pulledpork-master/pulledpork.pl
+        dest: /usr/local/bin/pulledpork.pl
+        mode: '0777'
+    - name: Snort configuration file from Template
+      template:
+        src: '/tmp/snort.j2'
+        dest: '/etc/snort/snort.conf'
+    - name: Copy config and custom rules file
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+#        - { src: '/tmp/snort.conf',  dest: '/etc/snort/snort.conf', remote_src: yes}
+        - { src: '/tmp/pulledpork.conf',  dest: '/etc/snort/pulledpork.conf', remote_src: yes}
+    - name: Update Snort rules through PulledPork
+      become: yes
+      shell: /usr/local/bin/pulledpork.pl -c /etc/snort/pulledpork.conf -l
